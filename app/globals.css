@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Lock overflow only on the editor page (applied via class on the wrapper) */
+.editor-layout {
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ─── Custom canvas engine node styles ─────────────────────────────────────── */
+.wf-canvas-node {
+  font-family: inherit;
+  user-select: none;
+  cursor: move;
+  transition: filter 200ms ease;
+}
+
+/* Subtle lift/glow on hover */
+.wf-canvas-node:hover {
+  filter: drop-shadow(0 4px 14px rgba(0,0,0,0.11));
+}
+
+/* ─── Handle: visible dot with indigo ring ─────────────────────────────────── */
+.wf-handle {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  border: 2px solid #6366f1 !important;
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.wf-canvas-node:hover .wf-handle,
+.wf-canvas-node.selected .wf-handle {
+  opacity: 1;
+  transform: scale(1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18) !important;
+}
+
+/* While actively connecting, target handles pulse */
+@keyframes wf-handle-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+.is-connecting .wf-handle[data-handle-type="target"] {
+  opacity: 1 !important;
+  transform: scale(1.25) !important;
+  border-color: #6366f1 !important;
+  animation: wf-handle-pulse 1s ease infinite !important;
+}
+.is-connecting .wf-handle[data-handle-type="source"] {
+  opacity: 0 !important;
+}
+
+/* ─── Task node shadow ──────────────────────────────────────────────────────── */
+.wf-task {
+  box-shadow:
+    0 1px 3px rgba(0,0,0,0.05),
+    0 2px 6px rgba(0,0,0,0.04);
+  transition: box-shadow 220ms ease;
+}
+
+/* ─── Node label (below events/gateways) ───────────────────────────────────── */
+.wf-label {
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 9px;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: 0.01em;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ─── Pan cursor ────────────────────────────────────────────────────────────── */
+.wf-canvas-root {
+  cursor: default;
+}
+.wf-canvas-root.is-panning {
+  cursor: grabbing !important;
+}
+
+/* ─── Selection ring animated dash ─────────────────────────────────────────── */
+@keyframes wf-dash {
+  to { stroke-dashoffset: -12; }
+}
+.wf-sel-ring {
+  animation: wf-dash 2.5s linear infinite;
+}
+
+/* ─── Edge flow animation on selection ─────────────────────────────────────── */
+@keyframes wf-flow {
+  from { stroke-dashoffset: 16; }
+  to { stroke-dashoffset: 0; }
+}
+.wf-edge-flow {
+  stroke-dasharray: 8 5;
+  animation: wf-flow 0.5s linear infinite;
+}
+
+/* ─── Subtle edge flow on all edges (connect direction hint) ────────────────── */
+@keyframes wf-edge-drift {
+  from { stroke-dashoffset: 20; }
+  to { stroke-dashoffset: 0; }
+}
+.wf-edge-drift {
+  stroke-dasharray: 0;
+  animation: none;
+}
+
+/* ─── Temp connection line pulse ────────────────────────────────────────────── */
+@keyframes wf-conn-dash {
+  to { stroke-dashoffset: -14; }
+}
+.wf-conn-line {
+  stroke-dasharray: 7 5;
+  animation: wf-conn-dash 0.4s linear infinite;
+}
+
+/* Smooth scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
