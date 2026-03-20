@@ -13,7 +13,8 @@ export type FieldType =
   | 'multiselect'
   | 'file'
   | 'currency'
-  | 'json';
+  | 'json'
+  | 'table';
 
 export interface SelectOption {
   label: string;
@@ -34,6 +35,7 @@ export interface FieldDefinition {
   helpText?: string;
   readOnly?: boolean;
   hidden?: boolean;
+  columns?: FieldDefinition[]; // for 'table' type — defines repeatable row columns
 }
 
 // ─── API / Integration Definitions ───────────────────────────────────────────
@@ -156,6 +158,7 @@ export type WFNodeType =
   | 'endEvent'
   | 'intermediateMessageEvent'
   | 'timerEvent'
+  | 'errorBoundaryEvent'
   | 'userTask'
   | 'serviceTask'
   | 'exclusiveGateway'

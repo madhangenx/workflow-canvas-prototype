@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, Trash2, GripVertical, ChevronDown, ChevronUp, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Trash2, GripVertical, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Table2 } from 'lucide-react';
 import { useWorkflowStore } from '@/lib/store';
 import type { FieldDefinition, FieldType, SelectOption } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -21,7 +21,105 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'file', label: 'File Upload' },
   { value: 'currency', label: 'Currency' },
   { value: 'json', label: 'JSON / Object' },
+  { value: 'table', label: 'Table (Repeatable)' },
 ];
+
+const COLUMN_TYPES: { value: FieldType; label: string }[] = [
+  { value: 'text', label: 'Text' },
+  { value: 'number', label: 'Number' },
+  { value: 'email', label: 'Email' },
+  { value: 'date', label: 'Date' },
+  { value: 'boolean', label: 'Boolean' },
+  { value: 'select', label: 'Select' },
+  { value: 'currency', label: 'Currency' },
+];
+
+function TableColumnsEditor({
+  columns,
+  onUpdate,
+}: {
+  columns: FieldDefinition[];
+  onUpdate: (cols: FieldDefinition[]) => void;
+}) {
+  const addColumn = () => {
+    const col: FieldDefinition = {
+      id: uuidv4(),
+      name: `col_${columns.length + 1}`,
+      label: `Column ${columns.length + 1}`,
+      type: 'text',
+      required: false,
+    };
+    onUpdate([...columns, col]);
+  };
+
+  return (
+    <div className="mt-2 rounded-lg border border-indigo-100 bg-indigo-50/30 p-2">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5">
+          <Table2 size={11} className="text-indigo-500" />
+          <span className="text-[10px] font-semibold text-indigo-600">Table Columns</span>
+        </div>
+        <button
+          onClick={addColumn}
+          className="flex items-center gap-0.5 rounded bg-indigo-500 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-indigo-600"
+        >
+          <Plus size={10} /> Column
+        </button>
+      </div>
+      {columns.length === 0 && (
+        <p className="text-[10px] text-slate-400 py-2 text-center">No columns yet. Add columns to define the table structure.</p>
+      )}
+      <div className="flex flex-col gap-1">
+        {columns.map((col, idx) => (
+          <div key={col.id} className="flex items-center gap-1 rounded bg-white px-2 py-1 border border-slate-200">
+            <input
+              className="min-w-0 flex-1 text-[10px] font-medium text-slate-700 bg-transparent outline-none"
+              value={col.label}
+              onChange={(e) => {
+                const updated = [...columns];
+                updated[idx] = { ...col, label: e.target.value, name: e.target.value.toLowerCase().replace(/\s+/g, '_') };
+                onUpdate(updated);
+              }}
+              placeholder="Column name"
+            />
+            <select
+              className="rounded border border-slate-200 bg-white px-1 py-0.5 text-[9px] text-slate-600 outline-none"
+              value={col.type}
+              onChange={(e) => {
+                const updated = [...columns];
+                updated[idx] = { ...col, type: e.target.value as FieldType };
+                onUpdate(updated);
+              }}
+            >
+              {COLUMN_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <label className="flex items-center gap-0.5 text-[9px] text-slate-500">
+              <input
+                type="checkbox"
+                checked={col.required}
+                onChange={(e) => {
+                  const updated = [...columns];
+                  updated[idx] = { ...col, required: e.target.checked };
+                  onUpdate(updated);
+                }}
+                className="h-2.5 w-2.5 rounded"
+              />
+              Req
+            </label>
+            <button
+              onClick={() => onUpdate(columns.filter((_, j) => j !== idx))}
+              className="text-slate-300 hover:text-rose-500"
+            >
+              <Trash2 size={10} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ── Single field expansion editor ──────────────────────────────────────────────
 
@@ -162,6 +260,14 @@ function FieldEditor({
                 </button>
               </div>
             </div>
+          )}
+
+          {/* Table columns editor */}
+          {field.type === 'table' && (
+            <TableColumnsEditor
+              columns={field.columns ?? []}
+              onUpdate={(cols) => update({ columns: cols })}
+            />
           )}
 
           <div className="grid grid-cols-2 gap-2">

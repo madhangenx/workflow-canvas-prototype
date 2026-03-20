@@ -19,6 +19,7 @@ import {
   AlignLeft,
   Mail,
   Clock,
+  AlertTriangle,
 } from 'lucide-react';
 import { showConfirm } from '@/lib/confirmStore';
 import { useWorkflowStore } from '@/lib/store';
@@ -26,7 +27,7 @@ import { FieldsEditor } from './FieldsEditor';
 import { ApiActionsEditor } from './ApiActionsEditor';
 import { cn } from '@/lib/utils';
 import type { WFNodeType, TaskPriority, AssigneeType } from '@/lib/types';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
@@ -43,10 +44,11 @@ const ALL_TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 // Hide APIs tab for gateway/event nodes
 const TABS_BY_NODE_TYPE: Record<WFNodeType, Tab[]> = {
   startEvent:               ['general'],
-  startMessageEvent:        ['general'],
+  startMessageEvent:        ['general', 'input', 'output'],
   endEvent:                 ['general'],
-  intermediateMessageEvent: ['general'],
+  intermediateMessageEvent: ['general', 'input', 'output'],
   timerEvent:               ['general'],
+  errorBoundaryEvent:       ['general'],
   userTask:         ['general', 'input', 'output', 'rules', 'apis'],
   serviceTask:      ['general', 'input', 'output', 'rules', 'apis'],
   scriptTask:       ['general'],
@@ -66,6 +68,7 @@ const NODE_META: Record<WFNodeType, { icon: React.ReactNode; color: string; labe
   endEvent:                 { icon: <Square size={12} fill="white" />,             color: 'bg-rose-500',    label: 'End Event' },
   intermediateMessageEvent: { icon: <Mail size={14} />,                            color: 'bg-amber-500',   label: 'Message Event' },
   timerEvent:               { icon: <Clock size={14} />,                           color: 'bg-indigo-500',  label: 'Timer Event' },
+  errorBoundaryEvent:       { icon: <AlertTriangle size={14} />,                   color: 'bg-red-600',     label: 'Error Boundary' },
   userTask:         { icon: <User size={14} />,                            color: 'bg-blue-500',    label: 'User Task' },
   serviceTask:      { icon: <Cog size={14} />,                             color: 'bg-violet-500',  label: 'Service Task' },
   scriptTask:       { icon: <GitBranch size={14} />,                       color: 'bg-orange-500',  label: 'Script Task' },
@@ -347,12 +350,58 @@ function EdgeEditor({ edgeId }: { edgeId: string }) {
   );
 }
 
+// ─── Resize drag handle ───────────────────────────────────────────────────────
+
+function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
+  const dragging = useRef(false);
+  const lastX = useRef(0);
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+    lastX.current = e.clientX;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, []);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    const delta = lastX.current - e.clientX;
+    lastX.current = e.clientX;
+    onResize(delta);
+  }, [onResize]);
+
+  const onPointerUp = useCallback(() => {
+    dragging.current = false;
+  }, []);
+
+  return (
+    <div
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 group hover:bg-indigo-400/20 transition-colors"
+      title="Drag to resize"
+    >
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 rounded-full bg-slate-300 group-hover:bg-indigo-400 transition-colors" />
+    </div>
+  );
+}
+
 // ─── PropertiesPanel ──────────────────────────────────────────────────────────
+
+const MIN_PANEL_W = 280;
+const MAX_PANEL_W = 640;
+const DEFAULT_PANEL_W = 320;
 
 export function PropertiesPanel() {
   const { selectedNodeId, selectedEdgeId, setSelectedNodeId, setSelectedEdgeId, nodes, deleteNode, deleteEdge } =
     useWorkflowStore();
   const [activeTab, setActiveTab] = useState<Tab>('general');
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_W);
+
+  const handleResize = useCallback((delta: number) => {
+    setPanelWidth(w => Math.max(MIN_PANEL_W, Math.min(MAX_PANEL_W, w + delta)));
+  }, []);
 
   const node = nodes.find((n) => n.id === selectedNodeId);
   const isOpen = !!selectedNodeId || !!selectedEdgeId;
@@ -362,7 +411,8 @@ export function PropertiesPanel() {
   // Edge mode
   if (selectedEdgeId) {
     return (
-      <aside className="flex h-full w-80 shrink-0 flex-col border-l border-slate-200 bg-white shadow-xl">
+      <aside className="relative flex h-full shrink-0 flex-col border-l border-slate-200 bg-white shadow-xl" style={{ width: panelWidth }}>
+        <ResizeHandle onResize={handleResize} />
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-slate-700">Sequence Flow</span>
@@ -406,7 +456,8 @@ export function PropertiesPanel() {
   const safeTab = allowedTabs.includes(activeTab) ? activeTab : 'general';
 
   return (
-    <aside className="flex h-full w-80 shrink-0 flex-col border-l border-slate-200 bg-white shadow-xl">
+    <aside className="relative flex h-full shrink-0 flex-col border-l border-slate-200 bg-white shadow-xl" style={{ width: panelWidth }}>
+      <ResizeHandle onResize={handleResize} />
       {/* Panel header */}
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div className="flex items-center gap-2">

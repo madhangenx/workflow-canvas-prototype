@@ -19,12 +19,14 @@ import React, {
   type RefObject,
   type PointerEvent as RP,
 } from 'react';
-import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ZoomIn, ZoomOut, Maximize2, Trash2 } from 'lucide-react';
 import { useWorkflowStore } from '@/lib/store';
 import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
 import type { WFNodeType } from '@/lib/types';
 import { showConfirm } from '@/lib/confirmStore';
+import { ContextMenu } from '@/components/ui/ContextMenu';
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    EXPORTED TYPES
@@ -558,6 +560,99 @@ export function CanvasProvider({ children }: { children: ReactNode }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   QUICK-ADD NODE PICKER — portal dropdown for fast node creation
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function QuickAddPicker({
+  x, y, items, onSelect, onClose,
+}: {
+  x: number;
+  y: number;
+  items: { type: WFNodeType; label: string; color: string }[];
+  onSelect: (type: WFNodeType, label: string) => void;
+  onClose: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ x, y: y - 120 });
+
+  useEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    let nx = x, ny = y - rect.height / 2;
+    if (nx + rect.width > window.innerWidth - 8) nx = x - rect.width - 30;
+    if (ny + rect.height > window.innerHeight - 8) ny = window.innerHeight - rect.height - 8;
+    if (ny < 8) ny = 8;
+    setPos({ x: nx, y: ny });
+  }, [x, y]);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [onClose]);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      style={{
+        position: 'fixed',
+        left: pos.x,
+        top: pos.y,
+        zIndex: 9999,
+        minWidth: 180,
+        background: '#ffffff',
+        border: '1px solid #e2e8f0',
+        borderRadius: 10,
+        boxShadow: '0 8px 28px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08)',
+        padding: '6px 0',
+        userSelect: 'none',
+      }}
+    >
+      <div style={{ padding: '4px 12px 6px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        Add next node
+      </div>
+      {items.map((item) => (
+        <button
+          key={item.type}
+          onClick={() => onSelect(item.type, item.label)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            width: '100%',
+            padding: '6px 12px',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 12,
+            fontWeight: 500,
+            color: '#1e293b',
+            textAlign: 'left',
+            transition: 'background 100ms',
+          }}
+          onMouseEnter={e => { (e.currentTarget).style.background = '#f8fafc'; }}
+          onMouseLeave={e => { (e.currentTarget).style.background = 'none'; }}
+        >
+          <div style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: item.color, flexShrink: 0,
+          }} />
+          {item.label}
+        </button>
+      ))}
+    </div>,
+    document.body,
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    NODE SIZES (for palette drop)
    ═══════════════════════════════════════════════════════════════════════════════ */
 
@@ -567,6 +662,7 @@ const NODE_SIZES: Record<string, { w: number; h: number }> = {
   endEvent:                 { w: 44,  h: 44  },
   intermediateMessageEvent: { w: 44,  h: 44  },
   timerEvent:               { w: 44,  h: 44  },
+  errorBoundaryEvent:       { w: 44,  h: 44  },
   userTask:         { w: 166, h: 44  },
   serviceTask:      { w: 166, h: 44  },
   scriptTask:       { w: 166, h: 44  },
@@ -592,7 +688,7 @@ export function Canvas({ nodeTypes }: CanvasProps) {
     moveNode,
     selectedNodeId, selectedEdgeId,
     setSelectedNodeId, setSelectedEdgeId,
-    deleteNode, deleteEdge, addNode,
+    deleteNode, deleteEdge, addNode, connectNodes,
   } = useWorkflowStore();
 
   const {
@@ -606,6 +702,63 @@ export function Canvas({ nodeTypes }: CanvasProps) {
   const isPanning   = useRef(false);
   const panStart    = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
   const tempEdgeRef = useRef<SVGPathElement | null>(null);
+
+  const [ctxMenu, setCtxMenu] = useState<{
+    x: number; y: number;
+    type: 'node' | 'edge';
+    id: string;
+    label?: string;
+  } | null>(null);
+
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [quickAddMenu, setQuickAddMenu] = useState<{
+    sourceId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  /* ── Quick-add node types ─────────────────────────────────────────────── */
+
+  const QUICK_ADD_ITEMS: { type: WFNodeType; label: string; color: string }[] = useMemo(() => [
+    { type: 'userTask',            label: 'User Task',      color: '#3b82f6' },
+    { type: 'serviceTask',         label: 'Service Task',   color: '#8b5cf6' },
+    { type: 'scriptTask',          label: 'Script Task',    color: '#f97316' },
+    { type: 'exclusiveGateway',    label: 'XOR Gateway',    color: '#f59e0b' },
+    { type: 'parallelGateway',     label: 'AND Gateway',    color: '#14b8a6' },
+    { type: 'endEvent',            label: 'End Event',      color: '#f43f5e' },
+    { type: 'intermediateMessageEvent', label: 'Message',   color: '#d97706' },
+    { type: 'timerEvent',          label: 'Timer',          color: '#4f46e5' },
+    { type: 'errorBoundaryEvent',  label: 'Error',          color: '#dc2626' },
+    { type: 'subProcess',          label: 'Sub-Process',    color: '#64748b' },
+  ], []);
+
+  const onQuickAdd = useCallback((sourceId: string, type: WFNodeType, label: string) => {
+    const srcNode = useWorkflowStore.getState().nodes.find(n => n.id === sourceId);
+    if (!srcNode) return;
+    const size = NODE_SIZES[type] ?? { w: 166, h: 44 };
+    const newX = srcNode.position.x + srcNode.width + 60;
+    const newY = srcNode.position.y + (srcNode.height / 2) - (size.h / 2);
+    const newId = `${type}-${uuidv4()}`;
+    addNode({
+      id: newId,
+      type,
+      position: { x: newX, y: newY },
+      width: size.w,
+      height: size.h,
+      data: {
+        nodeType: type,
+        label,
+        inputFields: [],
+        outputFields: [],
+        businessRules: [],
+        apis: [],
+        actionButtons: [],
+      },
+    });
+    connectNodes(sourceId, null, newId, null);
+    setSelectedNodeId(newId);
+    setQuickAddMenu(null);
+  }, [addNode, connectNodes, setSelectedNodeId]);
 
   /* ── Initial fit view ─────────────────────────────────────────────────── */
 
@@ -806,6 +959,25 @@ export function Canvas({ nodeTypes }: CanvasProps) {
     if (target.closest('[data-edge-id]'))  return;
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
+    setCtxMenu(null);
+    setQuickAddMenu(null);
+  }, [setSelectedNodeId, setSelectedEdgeId, setCtxMenu]);
+
+  const onNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const node = useWorkflowStore.getState().nodes.find((n) => n.id === nodeId);
+    setCtxMenu({ x: e.clientX, y: e.clientY, type: 'node', id: nodeId, label: node?.data?.label as string | undefined });
+    setSelectedNodeId(nodeId);
+    setSelectedEdgeId(null);
+  }, [setSelectedNodeId, setSelectedEdgeId]);
+
+  const onEdgeContextMenu = useCallback((e: React.MouseEvent, edgeId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxMenu({ x: e.clientX, y: e.clientY, type: 'edge', id: edgeId });
+    setSelectedEdgeId(edgeId);
+    setSelectedNodeId(null);
   }, [setSelectedNodeId, setSelectedEdgeId]);
 
   /* ── Keyboard shortcuts ─────────────────────────────────────────────── */
@@ -951,6 +1123,7 @@ export function Canvas({ nodeTypes }: CanvasProps) {
             // Focus the canvas root so keyboard shortcuts (Delete/Backspace) work on selected edge
             rootRef.current?.focus();
           }}
+          onContextMenu={(e) => onEdgeContextMenu(e as unknown as React.MouseEvent, edge.id)}
         />
         {/* Visible edge */}
         <path
@@ -1089,6 +1262,8 @@ export function Canvas({ nodeTypes }: CanvasProps) {
             const NodeComponent = nodeTypes[node.type];
             if (!NodeComponent) return null;
             const isSel = node.id === selectedNodeId;
+            const isHovered = node.id === hoveredNodeId;
+            const isEndNode = node.type === 'endEvent';
 
             return (
               <div
@@ -1107,10 +1282,61 @@ export function Canvas({ nodeTypes }: CanvasProps) {
                 }}
                 className={cn('wf-canvas-node', isSel && 'selected')}
                 onPointerDown={(e) => onNodePointerDown(e, node.id)}
+                onContextMenu={(e) => onNodeContextMenu(e, node.id)}
+                onMouseEnter={() => setHoveredNodeId(node.id)}
+                onMouseLeave={() => setHoveredNodeId(null)}
               >
                 <NodeCtx.Provider value={{ id: node.id, width: node.width, height: node.height }}>
                   <NodeComponent id={node.id} selected={isSel} data={node.data} />
                 </NodeCtx.Provider>
+
+                {/* Quick-add button — appears on hover to the right */}
+                {(isHovered || isSel) && !isEndNode && !connecting && (
+                  <div
+                    data-canvas-controls
+                    style={{
+                      position: 'absolute',
+                      right: -32,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      zIndex: 10,
+                    }}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect = (e.target as HTMLElement).getBoundingClientRect();
+                        setQuickAddMenu({
+                          sourceId: node.id,
+                          x: rect.right + 4,
+                          y: rect.top + rect.height / 2,
+                        });
+                      }}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        border: '2px solid #6366f1',
+                        background: 'white',
+                        color: '#6366f1',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        fontSize: 14,
+                        fontWeight: 700,
+                        lineHeight: 1,
+                        boxShadow: '0 2px 8px rgba(99,102,241,0.25)',
+                        transition: 'transform 100ms, box-shadow 100ms',
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget).style.transform = 'scale(1.15)'; (e.currentTarget).style.background = '#6366f1'; (e.currentTarget).style.color = 'white'; }}
+                      onMouseLeave={(e) => { (e.currentTarget).style.transform = 'scale(1)'; (e.currentTarget).style.background = 'white'; (e.currentTarget).style.color = '#6366f1'; }}
+                      title="Add next node"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1152,6 +1378,52 @@ export function Canvas({ nodeTypes }: CanvasProps) {
 
       {/* ── Overlay controls ── */}
       <Controls />
+
+      {/* ── Context menu ── */}
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          onClose={() => setCtxMenu(null)}
+          items={[
+            {
+              label: 'Delete',
+              icon: <Trash2 size={14} />,
+              danger: true,
+              onClick: () => {
+                if (ctxMenu.type === 'node') {
+                  showConfirm({
+                    title: `Delete "${ctxMenu.label ?? 'node'}"?`,
+                    description: 'The node and all its connections will be permanently removed.',
+                    confirmLabel: 'Delete',
+                    variant: 'danger',
+                    onConfirm: () => deleteNode(ctxMenu.id),
+                  });
+                } else {
+                  showConfirm({
+                    title: 'Delete connection?',
+                    description: 'This sequence flow will be permanently removed.',
+                    confirmLabel: 'Delete',
+                    variant: 'danger',
+                    onConfirm: () => deleteEdge(ctxMenu.id),
+                  });
+                }
+              },
+            },
+          ]}
+        />
+      )}
+
+      {/* ── Quick-add node picker ── */}
+      {quickAddMenu && (
+        <QuickAddPicker
+          x={quickAddMenu.x}
+          y={quickAddMenu.y}
+          items={QUICK_ADD_ITEMS}
+          onSelect={(type, label) => onQuickAdd(quickAddMenu.sourceId, type, label)}
+          onClose={() => setQuickAddMenu(null)}
+        />
+      )}
     </div>
   );
 }

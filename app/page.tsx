@@ -64,7 +64,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: UserProfile) => void }) {
           </div>
           <h1 className="text-3xl font-bold text-white">FlowForge</h1>
           <p className="mt-2 text-sm text-slate-400">
-            Visual BPMN workflow modelling engine
+            Digital flow for delivery engine
           </p>
         </div>
 

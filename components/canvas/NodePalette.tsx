@@ -15,6 +15,7 @@ import {
   GripVertical,
   Mail,
   Clock,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { WFNodeType } from '@/lib/types';
@@ -85,6 +86,17 @@ const PALETTE_ITEMS: PaletteItem[] = [
     icon: <Clock size={12} />,
     accent: 'indigo',
     accentHex: '#4f46e5',
+    shape: 'circle',
+    category: 'Events',
+  },
+  {
+    type: 'errorBoundaryEvent',
+    label: 'Error Boundary',
+    shortLabel: 'Error',
+    description: 'Catches exceptions thrown by an activity',
+    icon: <AlertTriangle size={12} />,
+    accent: 'red',
+    accentHex: '#dc2626',
     shape: 'circle',
     category: 'Events',
   },

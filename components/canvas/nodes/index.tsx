@@ -5,7 +5,7 @@ import { Handle, Position, NodeResizer, type NodeProps } from '@/components/canv
 import { cn } from '@/lib/utils';
 import { useWorkflowStore } from '@/lib/store';
 import type { WorkflowNodeData } from '@/lib/types';
-import { User, Cog, Code2, Layers, Flag, Mail, Clock } from 'lucide-react';
+import { User, Cog, Code2, Layers, Flag, Mail, Clock, AlertTriangle } from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    SHARED HELPERS
@@ -247,6 +247,44 @@ export const TimerEventNode = memo(({ id, selected, data }: NodeProps) => {
 TimerEventNode.displayName = 'TimerEventNode';
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   ERROR BOUNDARY EVENT — red double-ring circle + lightning bolt (exception)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+export const ErrorBoundaryEventNode = memo(({ id, selected, data }: NodeProps) => {
+  const { setSelectedNodeId } = useWorkflowStore();
+  const label = (data as unknown as WorkflowNodeData).label ?? 'Error';
+  const u = useId().replace(/:/g, '');
+
+  return (
+    <div className="wf-node relative h-full w-full cursor-pointer" onClick={() => setSelectedNodeId(id)}>
+      <NodeResizer isVisible={!!selected} minWidth={28} minHeight={28} keepAspectRatio handleStyle={rh('#dc2626', true)} lineStyle={rl('#dc2626')} />
+      <svg viewBox="0 0 36 36" className="h-full w-full" style={{ overflow: 'visible' }}>
+        <defs>
+          <linearGradient id={`g${u}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fca5a5" />
+            <stop offset="100%" stopColor="#dc2626" />
+          </linearGradient>
+          <filter id={`f${u}`} x="-25%" y="-15%" width="150%" height="150%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodOpacity="0.12" />
+          </filter>
+        </defs>
+        {selected && <circle cx="18" cy="18" r="17.5" fill="none" stroke="#fca5a5" strokeWidth="1.5" strokeDasharray="3 2" className="wf-sel-ring" />}
+        {/* Outer ring */}
+        <circle cx="18" cy="18" r="14.5" fill={`url(#g${u})`} filter={`url(#f${u})`} />
+        {/* Inner double-ring (BPMN intermediate marker) */}
+        <circle cx="18" cy="18" r="11.5" fill="none" stroke="#7f1d1d" strokeWidth="0.8" opacity="0.35" />
+        {/* Lightning bolt / error symbol */}
+        <polygon points="20,9 14,19 18,19 16,27 22,17 18,17" fill="white" fillOpacity="0.92" />
+      </svg>
+      <span className="wf-label">{label}</span>
+      <Handle type="target" position={Position.Left} className={HC} />
+      <Handle type="source" position={Position.Right} className={HC} />
+    </div>
+  );
+});
+ErrorBoundaryEventNode.displayName = 'ErrorBoundaryEventNode';
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    PREMIUM TASK NODES — accent bar + icon badge + label + chips
    ═══════════════════════════════════════════════════════════════════════════════ */
 
@@ -447,6 +485,7 @@ export const nodeTypes = {
   endEvent: EndEventNode,
   intermediateMessageEvent: IntermediateMessageEventNode,
   timerEvent: TimerEventNode,
+  errorBoundaryEvent: ErrorBoundaryEventNode,
   userTask: UserTaskNode,
   serviceTask: ServiceTaskNode,
   scriptTask: ScriptTaskNode,
