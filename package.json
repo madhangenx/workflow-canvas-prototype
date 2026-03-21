@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "npx playwright test --config=tests/playwright.config.ts",
+    "test:e2e": "npx playwright test --config=tests/playwright.config.ts --headed"
   },
   "dependencies": {
     "@dagrejs/dagre": "^2.0.4",
