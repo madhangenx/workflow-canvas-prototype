@@ -89,7 +89,7 @@ const initialNodes: WFNode[] = [
   {
     id:       'start-1',
     type:     'startEvent',
-    position: { x: 120, y: 200 },
+    position: { x: 60, y: 60 },
     width:    44,
     height:   44,
     data: {

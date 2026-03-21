@@ -97,7 +97,7 @@ export function createProject(name: string, description: string): Project {
       {
         id: 'start-1',
         type: 'startEvent',
-        position: { x: 100, y: 200 },
+        position: { x: 60, y: 60 },
         style: { width: 36, height: 36 },
         data: {
           nodeType: 'startEvent',

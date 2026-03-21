@@ -1294,12 +1294,14 @@ export function Canvas({ nodeTypes }: CanvasProps) {
                 {(isHovered || isSel) && !isEndNode && !connecting && (
                   <div
                     data-canvas-controls
+                    onMouseEnter={() => setHoveredNodeId(node.id)}
                     style={{
                       position: 'absolute',
                       right: -32,
                       top: '50%',
                       transform: 'translateY(-50%)',
                       zIndex: 10,
+                      paddingLeft: 14,
                     }}
                   >
                     <button
