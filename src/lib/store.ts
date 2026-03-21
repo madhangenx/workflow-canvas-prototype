@@ -36,6 +36,10 @@ interface WorkflowStore {
   updateNodeData: (nodeId: string, data: Partial<WorkflowNodeData>) => void;
   deleteNode: (nodeId: string) => void;
 
+  // ── Boundary event attachment
+  snapEventToActivity: (eventId: string) => void;
+  detachEvent: (eventId: string) => void;
+
   // ── Edge CRUD
   updateEdgeData: (edgeId: string, data: Partial<WorkflowEdgeData>) => void;
   deleteEdge: (edgeId: string) => void;
@@ -122,7 +126,18 @@ export const useWorkflowStore = create<WorkflowStore>()(
     moveNode: (id, x, y) =>
       set((state) => {
         const node = state.nodes.find((n) => n.id === id);
-        if (node) { node.position.x = x; node.position.y = y; }
+        if (!node) return;
+        const dx = x - node.position.x;
+        const dy = y - node.position.y;
+        node.position.x = x;
+        node.position.y = y;
+        // Cascade: move attached boundary events along with the parent
+        for (const child of state.nodes) {
+          if (child.data.attachedToNodeId === id) {
+            child.position.x += dx;
+            child.position.y += dy;
+          }
+        }
       }),
 
     resizeNode: (id, w, h) =>
@@ -163,11 +178,82 @@ export const useWorkflowStore = create<WorkflowStore>()(
 
     deleteNode: (nodeId) =>
       set((state) => {
+        // Clear attachment references for boundary events attached to this node
+        for (const n of state.nodes) {
+          if (n.data.attachedToNodeId === nodeId) {
+            n.data.attachedToNodeId = undefined;
+          }
+        }
         state.nodes = state.nodes.filter((n) => n.id !== nodeId);
         state.edges = state.edges.filter(
           (e) => e.source !== nodeId && e.target !== nodeId,
         );
         if (state.selectedNodeId === nodeId) state.selectedNodeId = null;
+      }),
+
+    // ── Boundary event snapping ──────────────────────────────────────────
+    snapEventToActivity: (eventId) =>
+      set((state) => {
+        const BOUNDARY_TYPES = ['timerEvent', 'intermediateMessageEvent', 'errorBoundaryEvent'];
+        const ACTIVITY_TYPES = ['userTask', 'serviceTask', 'scriptTask', 'subProcess'];
+        const SNAP_DISTANCE = 40; // px proximity to trigger snap
+
+        const evNode = state.nodes.find((n) => n.id === eventId);
+        if (!evNode || !BOUNDARY_TYPES.includes(evNode.data.nodeType)) return;
+
+        const evCX = evNode.position.x + (evNode.width ?? 44) / 2;
+        const evCY = evNode.position.y + (evNode.height ?? 44) / 2;
+
+        let bestDist = Infinity;
+        let bestActivity: typeof evNode | null = null;
+
+        for (const act of state.nodes) {
+          if (!ACTIVITY_TYPES.includes(act.data.nodeType)) continue;
+          const ax = act.position.x;
+          const ay = act.position.y;
+          const aw = act.width ?? 180;
+          const ah = act.height ?? 40;
+
+          // Check if event center is within the activity's bounding box + snap margin
+          const inRangeX = evCX >= ax - SNAP_DISTANCE && evCX <= ax + aw + SNAP_DISTANCE;
+          const inRangeY = evCY >= ay - SNAP_DISTANCE && evCY <= ay + ah + SNAP_DISTANCE;
+
+          if (inRangeX && inRangeY) {
+            // Distance from event center to activity center
+            const actCX = ax + aw / 2;
+            const actCY = ay + ah / 2;
+            const dist = Math.hypot(evCX - actCX, evCY - actCY);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestActivity = act;
+            }
+          }
+        }
+
+        if (bestActivity) {
+          const aw = bestActivity.width ?? 180;
+          const ah = bestActivity.height ?? 40;
+          const evW = evNode.width ?? 44;
+          const evH = evNode.height ?? 44;
+
+          // Snap to bottom-left of the activity (BPMN boundary event style)
+          evNode.position.x = bestActivity.position.x + aw * 0.3 - evW / 2;
+          evNode.position.y = bestActivity.position.y + ah - evH / 2;
+          evNode.data.attachedToNodeId = bestActivity.id;
+        } else {
+          // Not near any activity → clear attachment
+          evNode.data.attachedToNodeId = undefined;
+        }
+      }),
+
+    detachEvent: (eventId) =>
+      set((state) => {
+        const evNode = state.nodes.find((n) => n.id === eventId);
+        if (evNode) {
+          evNode.data.attachedToNodeId = undefined;
+          // Nudge the event down so it's visually detached
+          evNode.position.y += 30;
+        }
       }),
 
     updateEdgeData: (edgeId, data) =>

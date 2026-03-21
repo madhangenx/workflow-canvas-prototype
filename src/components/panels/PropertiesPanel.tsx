@@ -20,9 +20,12 @@ import {
   Mail,
   Clock,
   AlertTriangle,
+  Link as LinkIcon,
+  Unlink,
 } from 'lucide-react';
 import { showConfirm } from '@/lib/confirmStore';
 import { useWorkflowStore } from '@/lib/store';
+import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { FieldsEditor } from './FieldsEditor';
 import { ApiActionsEditor } from './ApiActionsEditor';
 import { cn } from '@/lib/utils';
@@ -92,12 +95,11 @@ function RulesDescriptionEditor({ nodeId }: { nodeId: string }) {
         <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
           Business Rules Description
         </label>
-        <textarea
-          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
-          rows={8}
+        <RichTextEditor
           value={(node.data.description as string) ?? ''}
-          onChange={(e) => updateNodeData(nodeId, { description: e.target.value })}
+          onChange={(html) => updateNodeData(nodeId, { description: html })}
           placeholder="Describe the business rules, conditions, and logic that govern this activity…"
+          minRows={8}
         />
       </div>
     </div>
@@ -120,6 +122,16 @@ function GeneralEditor({ nodeId }: { nodeId: string }) {
   const isGateway = ['exclusiveGateway', 'parallelGateway', 'inclusiveGateway'].includes(
     data.nodeType,
   );
+  const isBoundaryEvent = ['timerEvent', 'intermediateMessageEvent', 'errorBoundaryEvent'].includes(
+    data.nodeType,
+  );
+  const attachedTo = isBoundaryEvent && data.attachedToNodeId
+    ? store.nodes.find((n) => n.id === data.attachedToNodeId)
+    : null;
+  // Activities attached to this node
+  const attachedEvents = ['userTask', 'serviceTask', 'scriptTask', 'subProcess'].includes(data.nodeType)
+    ? store.nodes.filter((n) => n.data.attachedToNodeId === nodeId)
+    : [];
 
   return (
     <div className="flex flex-col gap-3">
@@ -141,14 +153,72 @@ function GeneralEditor({ nodeId }: { nodeId: string }) {
         <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
           Description
         </label>
-        <textarea
-          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
-          rows={3}
+        <RichTextEditor
           value={data.description ?? ''}
-          onChange={(e) => update({ description: e.target.value })}
+          onChange={(html) => update({ description: html })}
           placeholder="Describe what this activity does…"
         />
       </div>
+
+      {/* Boundary event — attached to indicator */}
+      {isBoundaryEvent && (
+        <div>
+          <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            Attached To
+          </label>
+          {attachedTo ? (
+            <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+              <LinkIcon size={12} className="text-indigo-500 shrink-0" />
+              <span className="text-xs font-medium text-indigo-700 truncate flex-1">
+                {attachedTo.data.label}
+              </span>
+              <button
+                type="button"
+                onClick={() => store.detachEvent(nodeId)}
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-rose-500 hover:bg-rose-50 transition-colors"
+                title="Detach from activity"
+              >
+                <Unlink size={10} />
+                Detach
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-[11px] text-slate-400 italic">
+              Drag this event near an activity to attach it
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Activity — attached events indicator */}
+      {attachedEvents.length > 0 && (
+        <div>
+          <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            Boundary Events
+          </label>
+          <div className="flex flex-col gap-1">
+            {attachedEvents.map((ev) => {
+              const evMeta = NODE_META[ev.data.nodeType];
+              return (
+                <div key={ev.id} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5">
+                  <div className={cn('flex h-5 w-5 items-center justify-center rounded text-white text-[10px]', evMeta.color)}>
+                    {evMeta.icon}
+                  </div>
+                  <span className="text-xs text-slate-600 truncate flex-1">{ev.data.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => store.detachEvent(ev.id)}
+                    className="text-[10px] text-rose-400 hover:text-rose-600"
+                    title="Detach event"
+                  >
+                    <Unlink size={10} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* UserTask specific */}
       {isUserTask && (

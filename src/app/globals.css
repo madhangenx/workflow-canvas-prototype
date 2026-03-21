@@ -155,3 +155,62 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* ─── Tiptap / ProseMirror rich text editor ─────────────────────────────────── */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #94a3b8;
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* Prose content styles inside the editor */
+.ProseMirror h2 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.25rem;
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+}
+
+.ProseMirror li {
+  margin-bottom: 0.1rem;
+}
+
+.ProseMirror code {
+  background: #f1f5f9;
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85em;
+  color: #7c3aed;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid #c7d2fe;
+  padding-left: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+  margin: 0.25rem 0;
+}
+
+.ProseMirror p {
+  margin-bottom: 0.2rem;
+}

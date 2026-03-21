@@ -3,7 +3,6 @@
 import { memo, useId } from 'react';
 import { Handle, Position, NodeResizer, type NodeProps } from '@/components/canvas/engine';
 import { cn } from '@/lib/utils';
-import { useWorkflowStore } from '@/lib/store';
 import type { WorkflowNodeData } from '@/lib/types';
 import { User, Cog, Code2, Layers, Flag, Mail, Clock, AlertTriangle } from 'lucide-react';
 
@@ -46,12 +45,11 @@ function Chip({ n, bg }: { n: number; bg: string }) {
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 export const StartEventNode = memo(({ id, selected, data }: NodeProps) => {
-  const { setSelectedNodeId } = useWorkflowStore();
   const label = (data as unknown as WorkflowNodeData).label ?? 'Start';
   const u = useId().replace(/:/g, '');
 
   return (
-    <div className="wf-node relative h-full w-full cursor-pointer" onClick={() => setSelectedNodeId(id)}>
+    <div className="wf-node relative h-full w-full cursor-pointer">
       <NodeResizer
         isVisible={!!selected}
         minWidth={28}
@@ -86,12 +84,11 @@ export const StartEventNode = memo(({ id, selected, data }: NodeProps) => {
 StartEventNode.displayName = 'StartEventNode';
 
 export const EndEventNode = memo(({ id, selected, data }: NodeProps) => {
-  const { setSelectedNodeId } = useWorkflowStore();
   const label = (data as unknown as WorkflowNodeData).label ?? 'End';
   const u = useId().replace(/:/g, '');
 
   return (
-    <div className="wf-node relative h-full w-full cursor-pointer" onClick={() => setSelectedNodeId(id)}>
+    <div className="wf-node relative h-full w-full cursor-pointer">
       <NodeResizer
         isVisible={!!selected}
         minWidth={28}
@@ -130,12 +127,11 @@ EndEventNode.displayName = 'EndEventNode';
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 export const StartMessageEventNode = memo(({ id, selected, data }: NodeProps) => {
-  const { setSelectedNodeId } = useWorkflowStore();
   const label = (data as unknown as WorkflowNodeData).label ?? 'Message Start';
   const u = useId().replace(/:/g, '');
 
   return (
-    <div className="wf-node relative h-full w-full cursor-pointer" onClick={() => setSelectedNodeId(id)}>
+    <div className="wf-node relative h-full w-full cursor-pointer">
       <NodeResizer isVisible={!!selected} minWidth={28} minHeight={28} keepAspectRatio handleStyle={rh('#10b981', true)} lineStyle={rl('#10b981')} />
       <svg viewBox="0 0 36 36" className="h-full w-full" style={{ overflow: 'visible' }}>
         <defs>
@@ -166,12 +162,11 @@ StartMessageEventNode.displayName = 'StartMessageEventNode';
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 export const IntermediateMessageEventNode = memo(({ id, selected, data }: NodeProps) => {
-  const { setSelectedNodeId } = useWorkflowStore();
   const label = (data as unknown as WorkflowNodeData).label ?? 'Message';
   const u = useId().replace(/:/g, '');
 
   return (
-    <div className="wf-node relative h-full w-full cursor-pointer" onClick={() => setSelectedNodeId(id)}>
+    <div className="wf-node relative h-full w-full cursor-pointer">
       <NodeResizer isVisible={!!selected} minWidth={28} minHeight={28} keepAspectRatio handleStyle={rh('#f59e0b', true)} lineStyle={rl('#f59e0b')} />
       <svg viewBox="0 0 36 36" className="h-full w-full" style={{ overflow: 'visible' }}>
         <defs>
@@ -205,12 +200,11 @@ IntermediateMessageEventNode.displayName = 'IntermediateMessageEventNode';
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 export const TimerEventNode = memo(({ id, selected, data }: NodeProps) => {
-  const { setSelectedNodeId } = useWorkflowStore();
   const label = (data as unknown as WorkflowNodeData).label ?? 'Timer';
   const u = useId().replace(/:/g, '');
 
   return (
-    <div className="wf-node relative h-full w-full cursor-pointer" onClick={() => setSelectedNodeId(id)}>
+    <div className="wf-node relative h-full w-full cursor-pointer">
       <NodeResizer isVisible={!!selected} minWidth={28} minHeight={28} keepAspectRatio handleStyle={rh('#6366f1', true)} lineStyle={rl('#6366f1')} />
       <svg viewBox="0 0 36 36" className="h-full w-full" style={{ overflow: 'visible' }}>
         <defs>
@@ -251,12 +245,11 @@ TimerEventNode.displayName = 'TimerEventNode';
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 export const ErrorBoundaryEventNode = memo(({ id, selected, data }: NodeProps) => {
-  const { setSelectedNodeId } = useWorkflowStore();
   const label = (data as unknown as WorkflowNodeData).label ?? 'Error';
   const u = useId().replace(/:/g, '');
 
   return (
-    <div className="wf-node relative h-full w-full cursor-pointer" onClick={() => setSelectedNodeId(id)}>
+    <div className="wf-node relative h-full w-full cursor-pointer">
       <NodeResizer isVisible={!!selected} minWidth={28} minHeight={28} keepAspectRatio handleStyle={rh('#dc2626', true)} lineStyle={rl('#dc2626')} />
       <svg viewBox="0 0 36 36" className="h-full w-full" style={{ overflow: 'visible' }}>
         <defs>
@@ -301,7 +294,6 @@ interface TaskBaseProps {
 
 const TaskBase = memo(
   ({ id, selected, data, icon, accent, iconBg, borderSel, ringSel }: TaskBaseProps) => {
-    const { setSelectedNodeId } = useWorkflowStore();
     const ic = data.inputFields?.length ?? 0;
     const oc = data.outputFields?.length ?? 0;
     const rc = data.businessRules?.length ?? 0;
@@ -315,7 +307,6 @@ const TaskBase = memo(
           selected ? `${borderSel} ring-1 ring-offset-1 ${ringSel}` : 'border-slate-200/80',
         )}
         style={{ borderLeftWidth: 3, borderLeftColor: accent }}
-        onClick={() => setSelectedNodeId(id)}
       >
         <NodeResizer
           isVisible={!!selected}
@@ -416,12 +407,11 @@ interface GatewayBaseProps {
 }
 
 const GatewayBase = memo(({ id, selected, data, variant }: GatewayBaseProps) => {
-  const { setSelectedNodeId } = useWorkflowStore();
   const u = useId().replace(/:/g, '');
   const cfg = GATEWAY_CFG[variant];
 
   return (
-    <div className="wf-node relative h-full w-full cursor-pointer" onClick={() => setSelectedNodeId(id)}>
+    <div className="wf-node relative h-full w-full cursor-pointer">
       <NodeResizer
         isVisible={!!selected}
         minWidth={32}
@@ -502,14 +492,12 @@ export const nodeTypes = {
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 export function SwimlaneNode({ id, selected, data }: NodeProps) {
-  const { setSelectedNodeId } = useWorkflowStore();
   const wd = data as unknown as WorkflowNodeData;
   const accent = wd.color ?? '#6366f1';
 
   return (
     <div
       className="wf-node relative h-full w-full cursor-pointer"
-      onClick={() => setSelectedNodeId(id)}
     >
       <NodeResizer
         isVisible={!!selected}
@@ -567,14 +555,12 @@ SwimlaneNode.displayName = 'SwimlaneNode';
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 export function MilestoneNode({ id, selected, data }: NodeProps) {
-  const { setSelectedNodeId } = useWorkflowStore();
   const wd = data as unknown as WorkflowNodeData;
 
   return (
     <div
       className="wf-node relative h-full w-full cursor-pointer"
       style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      onClick={() => setSelectedNodeId(id)}
     >
       <NodeResizer
         isVisible={!!selected}

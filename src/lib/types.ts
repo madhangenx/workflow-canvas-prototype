@@ -177,6 +177,9 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   label: string;
   description?: string;
 
+  // ── Boundary event attachment
+  attachedToNodeId?: string;
+
   // ── UserTask specific
   assignee?: string;
   assigneeType?: AssigneeType;

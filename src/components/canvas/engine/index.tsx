@@ -720,16 +720,20 @@ export function Canvas({ nodeTypes }: CanvasProps) {
   /* ── Quick-add node types ─────────────────────────────────────────────── */
 
   const QUICK_ADD_ITEMS: { type: WFNodeType; label: string; color: string }[] = useMemo(() => [
-    { type: 'userTask',            label: 'User Task',      color: '#3b82f6' },
-    { type: 'serviceTask',         label: 'Service Task',   color: '#8b5cf6' },
-    { type: 'scriptTask',          label: 'Script Task',    color: '#f97316' },
-    { type: 'exclusiveGateway',    label: 'XOR Gateway',    color: '#f59e0b' },
-    { type: 'parallelGateway',     label: 'AND Gateway',    color: '#14b8a6' },
-    { type: 'endEvent',            label: 'End Event',      color: '#f43f5e' },
-    { type: 'intermediateMessageEvent', label: 'Message',   color: '#d97706' },
-    { type: 'timerEvent',          label: 'Timer',          color: '#4f46e5' },
-    { type: 'errorBoundaryEvent',  label: 'Error',          color: '#dc2626' },
-    { type: 'subProcess',          label: 'Sub-Process',    color: '#64748b' },
+    { type: 'userTask',                 label: 'User Task',          color: '#3b82f6' },
+    { type: 'serviceTask',              label: 'Service Task',       color: '#8b5cf6' },
+    { type: 'scriptTask',               label: 'Script Task',        color: '#f97316' },
+    { type: 'subProcess',               label: 'Sub-Process',        color: '#64748b' },
+    { type: 'exclusiveGateway',         label: 'Exclusive Gateway',  color: '#f59e0b' },
+    { type: 'parallelGateway',          label: 'Parallel Gateway',   color: '#14b8a6' },
+    { type: 'inclusiveGateway',         label: 'Inclusive Gateway',  color: '#0ea5e9' },
+    { type: 'endEvent',                 label: 'End Event',          color: '#f43f5e' },
+    { type: 'startMessageEvent',        label: 'Message Start',      color: '#059669' },
+    { type: 'intermediateMessageEvent', label: 'Message Event',      color: '#d97706' },
+    { type: 'timerEvent',               label: 'Timer Event',        color: '#4f46e5' },
+    { type: 'errorBoundaryEvent',       label: 'Error Boundary',     color: '#dc2626' },
+    { type: 'swimlane',                 label: 'Swimlane',           color: '#6366f1' },
+    { type: 'milestone',                label: 'Milestone',          color: '#7c3aed' },
   ], []);
 
   const onQuickAdd = useCallback((sourceId: string, type: WFNodeType, label: string) => {
@@ -928,13 +932,17 @@ export function Canvas({ nodeTypes }: CanvasProps) {
     const startX = e.clientX, startY = e.clientY;
     const baseX  = node.position.x, baseY = node.position.y;
     let moved    = false;
+    const DRAG_THRESHOLD = 3; // px – ignore micro-jitter
 
     const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!moved && Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
       moved = true;
       const sc = viewportRef.current.scale;
       moveNode(nodeId,
-        baseX + (ev.clientX - startX) / sc,
-        baseY + (ev.clientY - startY) / sc,
+        baseX + dx / sc,
+        baseY + dy / sc,
       );
     };
 
@@ -942,6 +950,13 @@ export function Canvas({ nodeTypes }: CanvasProps) {
       if (!moved) {
         // Treat as click → select
         useWorkflowStore.getState().setSelectedNodeId(nodeId);
+      } else {
+        // After drag, try snapping if it's a boundary event
+        const BOUNDARY_TYPES = ['timerEvent', 'intermediateMessageEvent', 'errorBoundaryEvent'];
+        const n = useWorkflowStore.getState().nodes.find((nd) => nd.id === nodeId);
+        if (n && BOUNDARY_TYPES.includes(n.data.nodeType)) {
+          useWorkflowStore.getState().snapEventToActivity(nodeId);
+        }
       }
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup',   onUp);
@@ -1239,6 +1254,25 @@ export function Canvas({ nodeTypes }: CanvasProps) {
           {/* All edges */}
           <g style={{ pointerEvents: 'all' }}>
             {renderedEdges}
+          </g>
+
+          {/* Boundary event attachment lines */}
+          <g style={{ pointerEvents: 'none' }}>
+            {nodes.map((n) => {
+              if (!n.data.attachedToNodeId) return null;
+              const parent = nodes.find((p) => p.id === n.data.attachedToNodeId);
+              if (!parent) return null;
+              const evCX = n.position.x + (n.width ?? 44) / 2;
+              const evCY = n.position.y + (n.height ?? 44) / 2;
+              const pCX = parent.position.x + (parent.width ?? 180) / 2;
+              const pCY = parent.position.y + (parent.height ?? 40) / 2;
+              return (
+                <line key={`attach-${n.id}`}
+                  x1={evCX} y1={evCY} x2={pCX} y2={pCY}
+                  stroke="#a5b4fc" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.6}
+                />
+              );
+            })}
           </g>
 
           {/* Temp edge during connection drag */}
